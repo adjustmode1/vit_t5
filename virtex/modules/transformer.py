@@ -7,11 +7,11 @@ class Transformer(nn.Module):
     def __init__(self):
         super().__init__()
         # Initializes Decoder + LM Head
-        self.t5 = T5ForConditionalGeneration.from_pretrained("t5-base")
+        self.t5 = T5ForConditionalGeneration.from_pretrained("VietAi/t5-base")
         
         self.vit = timm.create_model('vit_base_patch16_224',pretrained=True,num_classes=0)
 
-        self.tokenizer = T5Tokenizer.from_pretrained("t5-base")
+        self.tokenizer = T5Tokenizer.from_pretrained("VietAI/vit5-base")
 
 
     def encode_image(self, x):
@@ -43,11 +43,10 @@ class Transformer(nn.Module):
         """
         input_embeds = input_embeds if input_embeds is not None else self.encode_image(input_image)
 
-        # Obs.: input_embeds are only used on encoder if encoder_outputs is None
-        # print("labels: ",labels.shape)
         # print("labels fill: ",labels.masked_fill(labels==0,-100).shape)
         if labels is not None:
           labels = labels.masked_fill(labels==0,-100)
+
         output = self.t5(
             encoder_outputs=None if use_t5_encoder else (input_embeds,),
             inputs_embeds=input_embeds,

@@ -155,10 +155,10 @@ class CaptioningModel(nn.Module):
                 del output
                 # end mới
 
-            if not self.training: # cái nào thêm vô 
-                # During validation (while pretraining), get best prediction
-                # at every timestep.
-                print("not training")
+            # if not self.training: # cái nào thêm vô 
+            #     # During validation (while pretraining), get best prediction
+            #     # at every timestep.
+            #     a = 1
         else:
             if self.decoder is None:
                 raise ValueError("Decoder for predicting captions is missing!")

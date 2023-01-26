@@ -64,12 +64,13 @@ class CaptioningDataset(Dataset):
         image = np.transpose(image, (2, 0, 1))
 
         caption_tokens = self.tokenizer.encode(caption) # vị trí
+        noitpac_tokens = self.tokenizer.encode(" ".join(caption.split(" ")[::-1]))
 
         return {
             "image_id": torch.tensor(image_id,dtype=torch.float),
             "image": torch.tensor(image, dtype=torch.float),
             "caption_tokens": torch.tensor(caption_tokens, dtype=torch.long),
-            "noitpac_tokens": torch.tensor(caption_tokens, dtype=torch.long).flip(0), # đảo lộn
+            "noitpac_tokens": noitpac_tokens, # đảo lộn
             "caption_lengths": torch.tensor(len(caption_tokens), dtype=torch.long),
         }
 
