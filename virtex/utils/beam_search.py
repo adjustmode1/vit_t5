@@ -58,67 +58,77 @@ class AutoRegressiveBeamSearch:
         visual_features: torch.Tensor,
         textual: any
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-            visual_features = visual_features[None, ...]
-            memory = textual.encode(visual_features.to(self.device))
-            target = torch.tensor([[self.eos_index]]) # BOS bằng mấy
+            # T5: 0
+            eos_token_id = 1
+            # T5: 1 (same as padding)
+            decoder_start_token_id = 0
+            input_ids = torch.full(
+              (visual_features.shape[0], 1),
+              decoder_start_token_id,
+              dtype=torch.long,
+              device=self.device
+            )
             with torch.no_grad():
-                output = textual.decode(target.to(self.device), memory)
-                logits = textual.generator(output.last_hidden_state)
-            scaled_logits = torch.log_softmax(logits[None,:], dim=1).cpu().squeeze(0) # over vocab size 
+                image_features = textual.transformer.encode_image(visual_features.to(self.device))
+                input_embeds = textual.transformer.t5.get_encoder()(inputs_embeds=image_features)[0]
+                outputs = textual(
+                  input_embeds=input_embeds,
+                  use_t5_encoder=False, # possible t5 encoder use already done
+                  decoder_input_ids=input_ids,
+                )
+                logits = outputs.logits[:, -1, :]
+
+            scaled_logits = torch.log_softmax(logits, dim=1).cpu().squeeze(0) # over vocab size 
             weights, candidates = torch.topk(input=scaled_logits, k=self.beam_size, largest=True)
+            
             response_tracker = []  # for valid final sequence 
             sequence_tracker = []  # for current active sequence
-            print(candidates)
-            for idx in candidates[0][0]:
-                print("idx: ",idx)
+            for idx in candidates:
                 option = torch.tensor([[idx]])  # a new option into the search tree 
-                sequence = torch.cat([target, option], dim=1)
+                sequence = torch.cat([input_ids, option], dim=1)
                 sequence_tracker.append(sequence)
-            print("sequence_tracker: ",sequence_tracker)
             keep_generating = True 
             while keep_generating:
                 input_batch = torch.vstack(sequence_tracker)
-                print("input_batch: ",input_batch)
-                for x in input_batch:
-                  print("element:",torch.tensor([[x[-1]]]))
-                  with torch.no_grad():
-                      input_memory = memory.repeat(1, 1, 1)
-                      output = textual.decode(torch.tensor([[x[-1]]]).to(self.device), input_memory)
-                      logits = textual.generator(output.last_hidden_state)    
- 
-                  scaled_logits = torch.log_softmax(logits[None,:], dim=1).cpu().squeeze(0)
-                  # bị cắt
-                  length = input_batch.shape[1] # input_batch
-                  vocab_size = scaled_logits.shape[1] # scaled_logits
-                  print("scaled_logits",scaled_logits.shape)
-                  print("weight: ",weights.shape)
-                  weighted_logits = (scaled_logits + weights[0,-1,:][:, None]) / length ** self.alpha  
-                  weights, candidates = torch.topk(input=weighted_logits, k=self.beam_size, largest=True) # beam_width
-                  weights = weights * length ** self.alpha  # denormalize
-                  print("weights",weights.shape)
-                  weights_tmp = []
-                  sequence_tmp = []
-                  print("result:",candidates)
-                  for idx, pos in enumerate(candidates):
-                      row = torch.div(pos, vocab_size, rounding_mode='floor') # get relative position over nb_sequences 
-                      col = pos % vocab_size  # get relative position over vocab_size 
-                      sequence = torch.cat([sequence_tracker[row], torch.tensor([[col]])], dim=1)
-                      if col == self.eos_index:
-                          flattened_sequence = torch.flatten(sequence).tolist()
-                          sequence_score = weights[idx] / len(flattened_sequence) ** self.alpha
-                          response_tracker.append((flattened_sequence, sequence_score))  # a sentence was built ##### response_tracker
-                          if len(response_tracker) == self.beam_size:
-                              keep_generating = False 
-                              break  # end the for loop over candidates
-                      elif sequence.shape[1] < self.max_steps - 1:
-                          weights_tmp.append(weights[row])
-                          sequence_tmp.append(sequence)
-                  # end for loop over candidates ...!
-                  if len(sequence_tmp) == 0: 
-                      keep_generating = False 
-                      break
-                  else:               
-                      weights = torch.tensor(weights_tmp)
-                      sequence_tracker = sequence_tmp
+                with torch.no_grad():
+                    input_memory = input_embeds.repeat(input_batch.shape[0], 1, 1)
+                    outputs = textual(
+                      input_embeds=input_memory,
+                      use_t5_encoder=False, # possible t5 encoder use already done
+                      decoder_input_ids=input_batch.to(self.device),
+                    )
+                    logits = outputs.logits[:,-1,:]
+                    
+                scaled_logits = torch.log_softmax(logits, dim=1).cpu()
+                
+                # bị cắt
+                length = input_batch.shape[1] # input_batch
+                vocab_size = scaled_logits.shape[1] # scaled_logits
+                weighted_logits = (scaled_logits + weights[:, None]) / length ** self.alpha  
+                weights, candidates = torch.topk(torch.flatten(weighted_logits), k=self.beam_size, largest=True) # beam_width
+                weights = weights * length ** self.alpha  # denormalize
+
+                weights_tmp = []
+                sequence_tmp = []
+                for idx, pos in enumerate(candidates):
+                    row = torch.div(pos, vocab_size, rounding_mode='floor') # get relative position over nb_sequences 
+                    col = pos % vocab_size  # get relative position over vocab_size 
+                    sequence = torch.cat([sequence_tracker[row], torch.tensor([[col]])], dim=1)
+                    if col == eos_token_id:
+                        flattened_sequence = torch.flatten(sequence).tolist()
+                        sequence_score = weights[idx] / len(flattened_sequence) ** self.alpha
+                        response_tracker.append((flattened_sequence, sequence_score))  # a sentence was built ##### response_tracker
+                        if len(response_tracker) == self.beam_size:
+                            keep_generating = False 
+                            break  # end the for loop over candidates
+                    elif sequence.shape[1] < self.max_steps - 1:
+                        weights_tmp.append(weights[row])
+                        sequence_tmp.append(sequence)
+                # end for loop over candidates ...!
+                if len(sequence_tmp) == 0: 
+                    keep_generating = False 
+                else:               
+                    weights = torch.tensor(weights_tmp)
+                    sequence_tracker = sequence_tmp
             return response_tracker
         # end while search loop ...! 

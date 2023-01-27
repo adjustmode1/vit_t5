@@ -80,24 +80,23 @@ def main(_A: argparse.Namespace):
         with torch.no_grad():
             output_dict = model(val_batch)
         # Make a dictionary of predictions in COCO format.
-        # sentences = []
-        # for sequence, _ in output_dict["predictions"]:
-        #       # ignore <bos> and <eos>
-        #     joined_caption = ' '.join(caption)
-        #     sentences.append(joined_caption)  
-        caption = tokenizer.decode(output_dict['predictions'][0][1:-1])
+        sentences = []
+        for sequence, _ in output_dict["predictions"]:
+            caption = tokenizer.decode(sequence[1:-1])  # ignore <bos> and <eos>
+            joined_caption = ' '.join(caption)
+            sentences.append(joined_caption)  
         predict.append(
             {
                 # Convert image id to int if possible (mainly for COCO eval).
                 "image_id": val_batch["image_id"],
-                "caption": caption,
+                "caption": sentences,
             }
         )
-        # captions = [x["caption"] for x in predict]
-        # ranked_scores = rank_solutions(val_batch["image_pil"], captions[0], ranker, processor, device)
-        # ranked_response = list(zip(captions[0], ranked_scores))
-        # ranked_response = sorted(ranked_response, key=op.itemgetter(1), reverse=True)
-        # predictions[val_batch["image_id"]] = ranked_response
+        captions = [x["caption"] for x in predict]
+        ranked_scores = rank_solutions(val_batch["image_pil"], captions[0], ranker, processor, device)
+        ranked_response = list(zip(captions[0], ranked_scores))
+        ranked_response = sorted(ranked_response, key=op.itemgetter(1), reverse=True)
+        predictions[val_batch["image_id"]] = ranked_response
 
     # Save predictions as a JSON file if specified.
     if _A.output is not None:
