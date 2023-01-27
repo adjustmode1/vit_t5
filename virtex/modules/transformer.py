@@ -66,13 +66,15 @@ class Transformer(nn.Module):
         # T5: 1 (same as padding)
         decoder_start_token_id = self.t5.decoder.config.decoder_start_token_id
 
+        print('eos_token_id: ',eos_token_id)
+        print("decoder_start_token_id: ",decoder_start_token_id)
         input_ids = torch.full(
             (input_image.shape[0], 1),
             decoder_start_token_id,
             dtype=torch.long,
             device=input_image.device
         )
-
+        print("input_ids: ",input_ids)
         # First pass, outside loop
         image_features = self.encode_image(input_image)
         if use_t5_encoder:

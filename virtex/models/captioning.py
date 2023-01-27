@@ -164,6 +164,7 @@ class CaptioningModel(nn.Module):
                 raise ValueError("Decoder for predicting captions is missing!")
             print('predict.....')
             response_tracker = self.decoding_step(visual_features=visual_features.unsqueeze(0),partial_captions=torch.tensor(1,dtype=float))
+            # response_tracker = self.textual.transformer.greedy_generate(visual_features.unsqueeze(0), 64, False)
             output_dict = {"predictions": response_tracker } 
         return output_dict
 
@@ -172,9 +173,9 @@ class CaptioningModel(nn.Module):
         self, visual_features: torch.Tensor, partial_captions: torch.Tensor
     ) -> torch.Tensor:
          # T5: 0
-        eos_token_id = 3
+        eos_token_id = 1
         # T5: 1 (same as padding)
-        decoder_start_token_id = 2
+        decoder_start_token_id = 0
 
         input_ids = torch.full(
             (visual_features.shape[0], 1),
