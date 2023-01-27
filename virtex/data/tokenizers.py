@@ -31,4 +31,4 @@ class SentencePieceBPETokenizer:
 
     def decode(self, token_ids: List[int]) -> str:
         r"""Convert a sequence of token IDs to a text string."""
-        return self.tokenizer(token_ids)
+        return self.tokenizer.decode(token_ids)

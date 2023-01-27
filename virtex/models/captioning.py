@@ -162,9 +162,7 @@ class CaptioningModel(nn.Module):
         else:
             if self.decoder is None:
                 raise ValueError("Decoder for predicting captions is missing!")
-            print('predict.....')
             response_tracker = self.decoding_step(visual_features=visual_features.unsqueeze(0),partial_captions=torch.tensor(1,dtype=float))
-            # response_tracker = self.textual.transformer.greedy_generate(visual_features.unsqueeze(0), 64, False)
             output_dict = {"predictions": response_tracker } 
         return output_dict
 

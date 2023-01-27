@@ -78,27 +78,28 @@ def main(_A: argparse.Namespace):
 
         # Make a dictionary of predictions in COCO format.
         sentences = []
-        print(output_dict)
-        for sequence, _ in output_dict["predictions"]:
-            caption = tokenizer.decode(sequence[1:-1])  # ignore <bos> and <eos>
-            joined_caption = ' '.join(caption)
-            sentences.append(joined_caption)  
-        predictions.append(
-            {
-                # Convert image id to int if possible (mainly for COCO eval).
-                "image_id": val_batch["image_id"],
-                "caption": sentences,
-            }
-        )
-        captions = [x["caption"] for x in predictions]
-        ranked_scores = rank_solutions(val_batch["image_pil"], captions[0], ranker, processor, device)
-        ranked_response = list(zip(captions[0], ranked_scores))
-        ranked_response = sorted(ranked_response, key=op.itemgetter(1), reverse=True)
-        for x in range(len(predictions)):
-          predictions[x]["caption"] = ranked_response[x][0]
+        # for sequence, _ in output_dict["predictions"]:
+        #     caption = tokenizer.decode(sequence[1:-1])  # ignore <bos> and <eos>
+        #     joined_caption = ' '.join(caption)
+        #     sentences.append(joined_caption)  
+        # predictions.append(
+        #     {
+        #         # Convert image id to int if possible (mainly for COCO eval).
+        #         "image_id": val_batch["image_id"],
+        #         "caption": sentences,
+        #     }
+        # )
+        # captions = [x["caption"] for x in predictions]
+        # ranked_scores = rank_solutions(val_batch["image_pil"], captions[0], ranker, processor, device)
+        # ranked_response = list(zip(captions[0], ranked_scores))
+        # ranked_response = sorted(ranked_response, key=op.itemgetter(1), reverse=True)
+        # for x in range(len(predictions)):
+        #   predictions[x]["caption"] = ranked_response[x][0]
+        # print("arr1: ",output_dict['predictions'][0])
+        caption = tokenizer.decode(output_dict['predictions'][0][1:-1])
         logger.info("Displaying first 25 caption predictions:")
-        for pred in predictions[:25]:
-            logger.info(f"{pred['image_id']} :: {pred['caption']}")
+        # for pred in predictions[:25]:
+        logger.info(f"{val_batch['image_id']} :: {caption}")
     # Save predictions as a JSON file if specified.
     if _A.output is not None:
         os.makedirs(os.path.dirname(_A.output), exist_ok=True)
